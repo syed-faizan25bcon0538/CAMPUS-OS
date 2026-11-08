@@ -4,7 +4,7 @@ import cors from "cors";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const KEY = process.env.GEMINI_API_KEY;
 const hasKey = Boolean(KEY) && KEY !== "your_api_key_here";
 
@@ -17,7 +17,8 @@ Help with:
 - Assignment problems: guide the student step by step instead of just giving final answers.
 - Planning: use the student's tasks, classes and deadlines to suggest what to do first.
 - Hackathon questions: give practical, concise advice.
-Keep answers short and clear. If you are unsure, say so.`;
+Keep answers short and clear. If you are unsure, say so.
+Write in plain text only. Do not use markdown symbols such as ** or # or ---. Use simple numbered lines or short paragraphs instead.`;
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, aiConfigured: hasKey });
