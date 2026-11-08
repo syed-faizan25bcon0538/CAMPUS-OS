@@ -2,7 +2,7 @@
 
 A student productivity web app: track classes, tasks, notes, events and deadlines, with an AI assistant for study help, assignment guidance and hackathon questions.
 
-**Live demo:** https://YOUR-VERCEL-LINK
+**Live demo:** https://campus-os-kappa-eight.vercel.app
 **Backend:** https://campus-os-server.onrender.com
 
 Note: the backend runs on a free plan and sleeps when idle, so the first AI reply after a pause can take up to a minute.
