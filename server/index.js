@@ -7,7 +7,11 @@ const PORT = process.env.PORT || 5000;
 const KEY = process.env.GEMINI_API_KEY;
 const hasKey = Boolean(KEY) && KEY !== "your_api_key_here";
 const API = "https://generativelanguage.googleapis.com/v1beta";
-const PREFERRED = [process.env.GEMINI_MODEL, "gemini-flash-latest"].filter(Boolean);
+const PREFERRED = [
+  process.env.GEMINI_MODEL,
+  "gemini-flash-lite-latest",
+  "gemini-flash-latest",
+].filter(Boolean);
 
 let activeModel = null; // the model that last worked
 let lastError = null; // the last failure, shown on /api/health
@@ -29,7 +33,7 @@ async function callModel(model, payload) {
   const r = await fetch(`${API}/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
-    signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(25000),
     body: JSON.stringify(payload),
   });
   const data = await r.json().catch(() => ({}));
@@ -71,7 +75,18 @@ async function generate(payload) {
   async function attempt(model) {
     if (!model || tried.has(model)) return null;
     tried.add(model);
-    const out = await callModel(model, payload);
+        let out;
+    try {
+      out = await callModel(model, payload);
+    } catch (err) {
+      // Timeouts and network hiccups: note them and try the next model
+      last = {
+        ok: false,
+        status: 504,
+        data: { error: { message: `${model}: ${err.name} (${err.message})` } },
+      };
+      return null;
+    }
     last = out;
     if (out.ok) {
       activeModel = model;
@@ -84,7 +99,13 @@ async function generate(payload) {
     const out = await attempt(m);
     if (out) return out;
   }
-  for (const m of await discoverModels()) {
+   let found = [];
+  try {
+    found = await discoverModels();
+  } catch {
+    // ignore: we'll report the last error instead
+  }
+  for (const m of found) {
     const out = await attempt(m);
     if (out) return out;
   }
