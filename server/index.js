@@ -48,6 +48,9 @@ const isModelProblem = (out) =>
       out.data?.error?.message || ""
     ));
 
+// Temporary overload or rate limit on one model: another model may still work
+const isBusy = (out) => !out.ok && [429, 500, 503, 504].includes(out.status);
+
 // Ask Google which Flash models this key can use
 async function discoverModels() {
   const r = await fetch(`${API}/models?pageSize=200`, {
@@ -92,7 +95,7 @@ async function generate(payload) {
       activeModel = model;
       return out;
     }
-    return isModelProblem(out) ? null : out; // other errors stop the search
+      return isModelProblem(out) || isBusy(out) ? null : out; // other errors stop the search
   }
 
   for (const m of [activeModel, ...PREFERRED]) {
@@ -167,11 +170,11 @@ app.post("/api/chat", async (req, res) => {
       const msg = out.data?.error?.message || "Unknown error";
       lastError = `${out.status}: ${msg}`.slice(0, 300);
       console.error("Gemini error:", lastError);
-      return res.status(out.status === 429 ? 429 : 500).json({
-        error:
-          out.status === 429
-            ? "The AI is busy right now (free limit reached). Please wait a minute and try again."
-            : `The AI request failed (${out.status}). ${msg.slice(0, 160)}`,
+           const busy = out.status === 429 || out.status === 503;
+      return res.status(busy ? 429 : 500).json({
+        error: busy
+          ? "The AI is busy right now. Please wait a minute and try again."
+          : `The AI request failed (${out.status}). ${msg.slice(0, 160)}`,
       });
     }
 
