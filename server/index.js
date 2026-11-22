@@ -9,8 +9,10 @@ const hasKey = Boolean(KEY) && KEY !== "your_api_key_here";
 const API = "https://generativelanguage.googleapis.com/v1beta";
 const PREFERRED = [
   process.env.GEMINI_MODEL,
+  "gemini-3.1-flash-lite",
   "gemini-flash-lite-latest",
-  "gemini-flash-latest",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite",
 ].filter(Boolean);
 
 let activeModel = null; // the model that last worked
@@ -33,14 +35,14 @@ async function callModel(model, payload) {
   const r = await fetch(`${API}/models/${model}:generateContent`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": KEY },
-      signal: AbortSignal.timeout(25000),
+    signal: AbortSignal.timeout(25000),
     body: JSON.stringify(payload),
   });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok, status: r.status, data };
 }
 
-// Is this failure about the model itself (retired, renamed, unsupported)?
+// The model itself is retired, renamed or unsupported
 const isModelProblem = (out) =>
   !out.ok &&
   (out.status === 404 ||
@@ -48,7 +50,7 @@ const isModelProblem = (out) =>
       out.data?.error?.message || ""
     ));
 
-// Temporary overload or rate limit on one model: another model may still work
+// Temporary overload or rate limit: another model may still work
 const isBusy = (out) => !out.ok && [429, 500, 503, 504].includes(out.status);
 
 // Ask Google which Flash models this key can use
@@ -70,48 +72,56 @@ async function discoverModels() {
     .slice(0, 4);
 }
 
-// Try the known models first, then any Flash model Google lists
+// Try several models. Skip ones that are busy or retired; stop on real errors.
 async function generate(payload) {
-  const tried = new Set();
+  const deadline = Date.now() + 70000; // never keep the user waiting longer
   let last = null;
 
-  async function attempt(model) {
-    if (!model || tried.has(model)) return null;
-    tried.add(model);
-        let out;
-    try {
-      out = await callModel(model, payload);
-    } catch (err) {
-      // Timeouts and network hiccups: note them and try the next model
-      last = {
-        ok: false,
-        status: 504,
-        data: { error: { message: `${model}: ${err.name} (${err.message})` } },
-      };
-      return null;
+  async function pass(models) {
+    for (const model of models) {
+      if (Date.now() > deadline) return null;
+      let out;
+      try {
+        out = await callModel(model, payload);
+      } catch (err) {
+        last = {
+          ok: false,
+          status: 504,
+          data: { error: { message: `${model}: ${err.name}` } },
+        };
+        continue;
+      }
+      last = out;
+      if (out.ok) {
+        activeModel = model;
+        return out;
+      }
+      // A bad key or bad request will fail on every model, so stop here
+      if (!isModelProblem(out) && !isBusy(out)) return out;
     }
-    last = out;
-    if (out.ok) {
-      activeModel = model;
-      return out;
-    }
-      return isModelProblem(out) || isBusy(out) ? null : out; // other errors stop the search
+    return null;
   }
 
-  for (const m of [activeModel, ...PREFERRED]) {
-    const out = await attempt(m);
-    if (out) return out;
-  }
-   let found = [];
+  const known = [...new Set([activeModel, ...PREFERRED].filter(Boolean))];
+  let out = await pass(known);
+  if (out) return out;
+
+  let found = [];
   try {
-    found = await discoverModels();
+    found = (await discoverModels()).filter((m) => !known.includes(m));
   } catch {
-    // ignore: we'll report the last error instead
+    // ignore: we report the last error instead
   }
-  for (const m of found) {
-    const out = await attempt(m);
+  out = await pass(found);
+  if (out) return out;
+
+  // Everything was busy: wait a moment and go round once more
+  if (last && isBusy(last) && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    out = await pass([...known, ...found]);
     if (out) return out;
   }
+
   return (
     last || {
       ok: false,
@@ -165,12 +175,12 @@ app.post("/api/chat", async (req, res) => {
       contents: clean,
       generationConfig: { maxOutputTokens: 2048 },
     });
-
+    
     if (!out.ok) {
       const msg = out.data?.error?.message || "Unknown error";
       lastError = `${out.status}: ${msg}`.slice(0, 300);
       console.error("Gemini error:", lastError);
-           const busy = out.status === 429 || out.status === 503;
+      const busy = [429, 503, 504].includes(out.status);
       return res.status(busy ? 429 : 500).json({
         error: busy
           ? "The AI is busy right now. Please wait a minute and try again."
@@ -189,12 +199,7 @@ app.post("/api/chat", async (req, res) => {
   } catch (err) {
     lastError = `${err.name}: ${err.message}`.slice(0, 300);
     console.error("AI error:", lastError);
-    res.status(500).json({
-      error:
-        err.name === "TimeoutError"
-          ? "The AI took too long to answer. Please try again."
-          : "The AI request failed. Please try again.",
-    });
+    res.status(500).json({ error: "The AI request failed. Please try again." });
   }
 });
 
