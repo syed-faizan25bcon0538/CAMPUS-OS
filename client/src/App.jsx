@@ -9,6 +9,7 @@ import Timetable from "./pages/Timetable.jsx";
 import Notes from "./pages/Notes.jsx";
 import Calendar from "./pages/Calendar.jsx";
 import Assistant from "./pages/Assistant.jsx";
+import Backup from "./pages/Backup.jsx";
 import NotFound from "./pages/NotFound.jsx";
 
 // Jump back to the top of the page whenever the address changes
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="notes" element={<Notes />} />
           <Route path="calendar" element={<Calendar />} />
           <Route path="assistant" element={<Assistant />} />
+          <Route path="backup" element={<Backup />} />
         </Route>
 
         {/* Anything else */}

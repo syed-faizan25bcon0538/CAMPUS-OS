@@ -1,61 +1,25 @@
 import { useState } from "react";
-import { Plus, Trash2, CalendarDays } from "lucide-react";
+import { Plus, Trash2, CalendarDays, Pencil, Check, X } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
 import { daysUntil, whenLabel, prettyDate } from "../utils/dates.js";
+import { KINDS, kindBadge } from "../utils/kinds.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 
-const KINDS = ["Event", "Deadline", "Exam", "Hackathon"];
-
-// Picks a badge colour for each kind
-function kindBadge(kind) {
-  switch (kind) {
-    case "Deadline":
-      return "badge-red";
-    case "Exam":
-      return "badge-amber";
-    case "Hackathon":
-      return "badge-blue";
-    default:
-      return "badge-accent";
-  }
-}
-
-// One row in either list
-function EventRow({ event, past, onRemove }) {
-  const w = whenLabel(event.date);
-  return (
-    <div className="list-item" style={past ? { opacity: 0.6 } : undefined}>
-      <div className="grow">
-        <div className="item-title">{event.title}</div>
-        <div className="item-sub">
-          <span className={"badge " + kindBadge(event.kind)}>{event.kind}</span>{" "}
-          {prettyDate(event.date)}
-        </div>
-      </div>
-
-      <span className="badge">{past ? "Past" : w.text}</span>
-
-      <button
-        className="icon-btn danger"
-        onClick={() => onRemove(event.id)}
-        aria-label={`Delete "${event.title}"`}
-        title="Delete"
-      >
-        <Trash2 size={16} />
-      </button>
-    </div>
-  );
-}
-
 export default function Calendar() {
-  const { events, addEvent, removeEvent } = useData();
+  const { events, addEvent, updateEvent, removeEvent } = useData();
 
-  // These belong only to this page
+  // The add form and the selected filter belong only to this page
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [kind, setKind] = useState("Event");
   const [filter, setFilter] = useState("All");
+
+  // Editing: which entry is being edited, and its draft values
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [editKind, setEditKind] = useState("Event");
 
   const canAdd = title.trim() && date;
 
@@ -64,6 +28,114 @@ export default function Calendar() {
     addEvent(title, date, kind);
     setTitle("");
     setDate("");
+  }
+
+  function startEdit(e) {
+    setEditingId(e.id);
+    setEditTitle(e.title);
+    setEditDate(e.date);
+    setEditKind(e.kind);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  function saveEdit() {
+    if (updateEvent(editingId, { title: editTitle, date: editDate, kind: editKind })) {
+      setEditingId(null);
+    }
+  }
+
+  // One row in either list, normal or being edited
+  function renderRow(e, past) {
+    if (editingId === e.id) {
+      return (
+        <div className="list-item" key={e.id}>
+          <div className="form-row grow">
+            <div className="field" style={{ flex: 3 }}>
+              <input
+                className="input"
+                value={editTitle}
+                onChange={(ev) => setEditTitle(ev.target.value)}
+                onKeyDown={(ev) => {
+                  if (ev.key === "Enter") saveEdit();
+                  if (ev.key === "Escape") cancelEdit();
+                }}
+                aria-label="Title"
+                autoFocus
+              />
+            </div>
+            <div className="field">
+              <input
+                className="input"
+                type="date"
+                value={editDate}
+                onChange={(ev) => setEditDate(ev.target.value)}
+                aria-label="Date"
+              />
+            </div>
+            <div className="field">
+              <select
+                className="select"
+                value={editKind}
+                onChange={(ev) => setEditKind(ev.target.value)}
+                aria-label="Type"
+              >
+                {KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <button
+            className="icon-btn"
+            onClick={saveEdit}
+            disabled={!editTitle.trim() || !editDate}
+            aria-label="Save changes"
+            title="Save"
+          >
+            <Check size={16} />
+          </button>
+          <button className="icon-btn" onClick={cancelEdit} aria-label="Cancel editing" title="Cancel">
+            <X size={16} />
+          </button>
+        </div>
+      );
+    }
+
+    const w = whenLabel(e.date);
+    return (
+      <div className="list-item" key={e.id} style={past ? { opacity: 0.6 } : undefined}>
+        <div className="grow">
+          <div className="item-title">{e.title}</div>
+          <div className="item-sub">
+            <span className={"badge " + kindBadge(e.kind)}>{e.kind}</span> {prettyDate(e.date)}
+          </div>
+        </div>
+
+        <span className="badge">{past ? "Past" : w.text}</span>
+
+        <button
+          className="icon-btn"
+          onClick={() => startEdit(e)}
+          aria-label={`Edit "${e.title}"`}
+          title="Edit"
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          className="icon-btn danger"
+          onClick={() => removeEvent(e.id)}
+          aria-label={`Delete "${e.title}"`}
+          title="Delete"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+    );
   }
 
   // Apply the filter, then split into upcoming and past
@@ -178,16 +250,14 @@ export default function Calendar() {
             {upcoming.length === 0 ? (
               <div className="item-sub">Nothing coming up.</div>
             ) : (
-              upcoming.map((e) => <EventRow key={e.id} event={e} onRemove={removeEvent} />)
+              upcoming.map((e) => renderRow(e, false))
             )}
           </div>
 
           {past.length > 0 && (
             <div className="card mt">
               <div className="card-title">Past ({past.length})</div>
-              {past.map((e) => (
-                <EventRow key={e.id} event={e} past onRemove={removeEvent} />
-              ))}
+              {past.map((e) => renderRow(e, true))}
             </div>
           )}
         </>

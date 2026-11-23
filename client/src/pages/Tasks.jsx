@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Trash2, ListChecks, CheckCheck } from "lucide-react";
+import { Plus, Trash2, ListChecks, CheckCheck, Pencil, Check, X } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
 import { daysUntil, whenLabel, prettyDate } from "../utils/dates.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
@@ -8,18 +8,39 @@ import EmptyState from "../components/ui/EmptyState.jsx";
 const FILTERS = ["All", "Pending", "Overdue", "Completed"];
 
 export default function Tasks() {
-  const { tasks, addTask, toggleTask, removeTask, clearCompleted } = useData();
+  const { tasks, addTask, updateTask, toggleTask, removeTask, clearCompleted } = useData();
 
-  // Form fields and the selected filter belong only to this page
+  // The add form and the selected filter belong only to this page
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [filter, setFilter] = useState("All");
+
+  // Editing: which task is being edited, and its draft values
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDue, setEditDue] = useState("");
 
   function handleAdd() {
     if (!title.trim()) return;
     addTask(title, due);
     setTitle("");
     setDue("");
+  }
+
+  function startEdit(t) {
+    setEditingId(t.id);
+    setEditTitle(t.title);
+    setEditDue(t.due || "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  function saveEdit() {
+    if (updateTask(editingId, { title: editTitle, due: editDue })) {
+      setEditingId(null);
+    }
   }
 
   // Which tasks belong to each filter
@@ -125,6 +146,56 @@ export default function Tasks() {
           />
         ) : (
           visible.map((t) => {
+            // ----- A task being edited -----
+            if (editingId === t.id) {
+              return (
+                <div className="list-item" key={t.id}>
+                  <div className="form-row grow">
+                    <div className="field" style={{ flex: 3 }}>
+                      <input
+                        className="input"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveEdit();
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        aria-label="Task title"
+                        autoFocus
+                      />
+                    </div>
+                    <div className="field">
+                      <input
+                        className="input"
+                        type="date"
+                        value={editDue}
+                        onChange={(e) => setEditDue(e.target.value)}
+                        aria-label="Due date"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="icon-btn"
+                    onClick={saveEdit}
+                    disabled={!editTitle.trim()}
+                    aria-label="Save changes"
+                    title="Save"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button
+                    className="icon-btn"
+                    onClick={cancelEdit}
+                    aria-label="Cancel editing"
+                    title="Cancel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              );
+            }
+
+            // ----- A normal task row -----
             const w = t.done ? { text: "", late: false } : whenLabel(t.due);
             return (
               <div className={"list-item" + (t.done ? " done" : "")} key={t.id}>
@@ -148,6 +219,14 @@ export default function Tasks() {
                   )
                 )}
 
+                <button
+                  className="icon-btn"
+                  onClick={() => startEdit(t)}
+                  aria-label={`Edit "${t.title}"`}
+                  title="Edit"
+                >
+                  <Pencil size={16} />
+                </button>
                 <button
                   className="icon-btn danger"
                   onClick={() => removeTask(t.id)}

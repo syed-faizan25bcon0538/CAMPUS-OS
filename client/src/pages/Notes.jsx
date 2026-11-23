@@ -1,23 +1,44 @@
 import { useState } from "react";
-import { Plus, Trash2, NotebookPen, Search } from "lucide-react";
+import { Plus, Trash2, NotebookPen, Search, Pencil } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
 import { prettyDate } from "../utils/dates.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 
 export default function Notes() {
-  const { notes, addNote, removeNote } = useData();
+  const { notes, addNote, updateNote, removeNote } = useData();
 
-  // These belong only to this page
+  // The write form and the search belong only to this page
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [query, setQuery] = useState("");
+
+  // Editing: which note is being edited, and its draft values
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
 
   function handleSave() {
     if (!title.trim()) return;
     addNote(title, body);
     setTitle("");
     setBody("");
+  }
+
+  function startEdit(n) {
+    setEditingId(n.id);
+    setEditTitle(n.title);
+    setEditBody(n.body || "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  function saveEdit() {
+    if (updateNote(editingId, { title: editTitle, body: editBody })) {
+      setEditingId(null);
+    }
   }
 
   // Search looks in both the title and the text, ignoring capital letters
@@ -114,26 +135,69 @@ export default function Notes() {
           </div>
         ) : (
           <div className="notes-grid">
-            {shown.map((n) => (
-              <article className="note-card" key={n.id}>
-                <div className="row" style={{ alignItems: "flex-start" }}>
-                  <h3 className="note-title grow">{n.title}</h3>
-                  <button
-                    className="icon-btn danger"
-                    style={{ width: 28, height: 28 }}
-                    onClick={() => removeNote(n.id)}
-                    aria-label={`Delete note "${n.title}"`}
-                    title="Delete"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
+            {shown.map((n) =>
+              editingId === n.id ? (
+                // ----- A note being edited -----
+                <article className="note-card" key={n.id}>
+                  <input
+                    className="input"
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && cancelEdit()}
+                    aria-label="Note title"
+                    autoFocus
+                  />
+                  <textarea
+                    className="textarea"
+                    value={editBody}
+                    onChange={(e) => setEditBody(e.target.value)}
+                    onKeyDown={(e) => e.key === "Escape" && cancelEdit()}
+                    aria-label="Note text"
+                  />
+                  <div className="row">
+                    <button
+                      className="btn btn-primary"
+                      onClick={saveEdit}
+                      disabled={!editTitle.trim()}
+                    >
+                      Save
+                    </button>
+                    <button className="btn btn-ghost" onClick={cancelEdit}>
+                      Cancel
+                    </button>
+                  </div>
+                </article>
+              ) : (
+                // ----- A normal note card -----
+                <article className="note-card" key={n.id}>
+                  <div className="row" style={{ alignItems: "flex-start" }}>
+                    <h3 className="note-title grow">{n.title}</h3>
+                    <button
+                      className="icon-btn"
+                      style={{ width: 28, height: 28 }}
+                      onClick={() => startEdit(n)}
+                      aria-label={`Edit note "${n.title}"`}
+                      title="Edit"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      className="icon-btn danger"
+                      style={{ width: 28, height: 28 }}
+                      onClick={() => removeNote(n.id)}
+                      aria-label={`Delete note "${n.title}"`}
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
 
-                {n.body && <p className="note-body">{n.body}</p>}
+                  {n.body && <p className="note-body">{n.body}</p>}
 
-                {n.created && <div className="item-sub">{prettyDate(n.created)}</div>}
-              </article>
-            ))}
+                  {n.created && <div className="item-sub">{prettyDate(n.created)}</div>}
+                </article>
+              )
+            )}
           </div>
         )}
       </div>

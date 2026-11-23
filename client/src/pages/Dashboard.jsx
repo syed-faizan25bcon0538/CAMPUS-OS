@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
 import { todayDay, daysUntil, whenLabel, prettyDate } from "../utils/dates.js";
+import { kindBadge } from "../utils/kinds.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 
@@ -17,22 +18,6 @@ function greeting() {
   if (h < 12) return "Good morning";
   if (h < 18) return "Good afternoon";
   return "Good evening";
-}
-
-// Picks a badge colour for each kind of item
-function kindBadge(kind) {
-  switch (kind) {
-    case "Deadline":
-      return "badge-red";
-    case "Exam":
-      return "badge-amber";
-    case "Hackathon":
-      return "badge-blue";
-    case "Task":
-      return "badge-accent";
-    default:
-      return "";
-  }
 }
 
 // One number card at the top of the page
@@ -106,7 +91,12 @@ export default function Dashboard() {
         <Stat icon={ListChecks} tone="" value={pending.length} label="Pending tasks" />
         <Stat icon={Clock} tone="amber" value={dueSoon.length} label="Due in 7 days" />
         <Stat icon={Flag} tone="red" value={overdue.length} label="Overdue" />
-        <Stat icon={CalendarClock} tone="green" value={todaysClasses.length} label={`Classes today (${day})`} />
+        <Stat
+          icon={CalendarClock}
+          tone="green"
+          value={todaysClasses.length}
+          label={`Classes today (${day})`}
+        />
       </div>
 
       <div className="grid-2">

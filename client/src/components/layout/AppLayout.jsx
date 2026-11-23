@@ -7,6 +7,7 @@ import {
   NotebookPen,
   CalendarDays,
   Sparkles,
+  Archive,
   Menu,
   Moon,
   Sun,
@@ -23,6 +24,7 @@ const NAV = [
   { to: "/app/notes", label: "Notes", icon: NotebookPen },
   { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/app/assistant", label: "AI assistant", icon: Sparkles },
+  { to: "/app/backup", label: "Backup", icon: Archive },
 ];
 
 // Light / dark theme. Remembers the choice; follows the computer until you pick.
@@ -105,7 +107,11 @@ export default function AppLayout() {
 
         <div className="sidebar-footer">
           <p>Your data is saved in this browser only.</p>
-          <button className="btn btn-ghost mt" onClick={handleReset} style={{ height: 34, padding: "0 8px" }}>
+          <button
+            className="btn btn-ghost mt"
+            onClick={handleReset}
+            style={{ height: 34, padding: "0 8px" }}
+          >
             <RotateCcw size={15} />
             Reset data
           </button>

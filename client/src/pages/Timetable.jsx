@@ -5,22 +5,31 @@ import { DAYS, todayDay } from "../utils/dates.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
 import EmptyState from "../components/ui/EmptyState.jsx";
 
+const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+
 export default function Timetable() {
   const { classes, addClass, removeClass } = useData();
 
   const today = todayDay();
 
-  // The form fields belong only to this page
+  // The form belongs only to this page. "days" can hold several days at once.
   const [title, setTitle] = useState("");
-  const [day, setDay] = useState(today);
+  const [days, setDays] = useState([today]);
   const [time, setTime] = useState("");
 
+  const canAdd = title.trim() && days.length > 0;
+
+  function toggleDay(d) {
+    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+  }
+
   function handleAdd() {
-    if (!title.trim()) return;
-    addClass(title, day, time);
+    if (!canAdd) return;
+    // Keep the days in Mon to Sun order
+    addClass(title, DAYS.filter((d) => days.includes(d)), time);
     setTitle("");
     setTime("");
-    // The day stays selected, so you can add several classes for one day quickly
+    // The chosen days stay selected, so you can add several classes quickly
   }
 
   // Classes for one day, earliest first
@@ -38,56 +47,73 @@ export default function Timetable() {
 
       {/* ----- Add a class ----- */}
       <div className="card">
-        <div className="form-row">
-          <div className="field" style={{ flex: 3 }}>
-            <label className="label" htmlFor="class-title">
-              Subject
-            </label>
-            <input
-              id="class-title"
-              className="input"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="e.g. Data Structures"
-            />
+        <div className="stack">
+          <div className="form-row">
+            <div className="field" style={{ flex: 3 }}>
+              <label className="label" htmlFor="class-title">
+                Subject
+              </label>
+              <input
+                id="class-title"
+                className="input"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                placeholder="e.g. Data Structures"
+              />
+            </div>
+
+            <div className="field">
+              <label className="label" htmlFor="class-time">
+                Time
+              </label>
+              <input
+                id="class-time"
+                className="input"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+              />
+            </div>
+
+            <button className="btn btn-primary" onClick={handleAdd} disabled={!canAdd}>
+              <Plus size={16} />
+              Add class
+            </button>
           </div>
 
-          <div className="field">
-            <label className="label" htmlFor="class-day">
-              Day
-            </label>
-            <select
-              id="class-day"
-              className="select"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-            >
+          <div>
+            <div className="row-wrap" style={{ marginBottom: 8 }}>
+              <span className="label">Days (choose one or more)</span>
+              <button
+                className="btn btn-ghost"
+                style={{ height: 28, padding: "0 8px" }}
+                onClick={() => setDays(WEEKDAYS)}
+              >
+                Mon to Fri
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ height: 28, padding: "0 8px" }}
+                onClick={() => setDays([])}
+              >
+                Clear
+              </button>
+            </div>
+            <div className="pills">
               {DAYS.map((d) => (
-                <option key={d} value={d}>
+                <button
+                  key={d}
+                  type="button"
+                  className={"pill" + (days.includes(d) ? " active" : "")}
+                  aria-pressed={days.includes(d)}
+                  onClick={() => toggleDay(d)}
+                >
                   {d}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
           </div>
-
-          <div className="field">
-            <label className="label" htmlFor="class-time">
-              Time
-            </label>
-            <input
-              id="class-time"
-              className="input"
-              type="time"
-              value={time}
-              onChange={(e) => setTime(e.target.value)}
-            />
-          </div>
-
-          <button className="btn btn-primary" onClick={handleAdd} disabled={!title.trim()}>
-            <Plus size={16} />
-            Add class
-          </button>
         </div>
       </div>
 
