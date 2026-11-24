@@ -38,7 +38,7 @@ const FEATURES = [
   {
     icon: ShieldCheck,
     title: "Private by design",
-    text: "No account needed. Your data is stored in your browser and is only shared with the AI when you ask it something.",
+    text: "Your data is saved in your own account and is only shared with the AI when you ask it something.",
   },
 ];
 
@@ -154,7 +154,7 @@ export default function Landing() {
         <div className="container">
           <div className="cta-band">
             <h2>Ready to get organised?</h2>
-            <p>It's free, and there's nothing to sign up for.</p>
+            <p>It's free. Create an account in seconds and your planner follows you everywhere.</p>
             <Link to="/app" className="btn btn-lg">
               Open Campus OS <ArrowRight size={18} />
             </Link>

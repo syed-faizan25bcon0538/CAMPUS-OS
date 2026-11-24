@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
-import { Download, Upload } from "lucide-react";
+import { Download, Upload, HardDriveDownload } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
 import { parseBackup } from "../utils/backup.js";
 import { todayStr } from "../utils/dates.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
 
 const MAX_FILE_BYTES = 2 * 1024 * 1024; // 2 MB is far more than any real backup
+const KINDS = ["Event", "Deadline", "Exam", "Hackathon"];
+const DATE_OK = /^\d{4}-\d{2}-\d{2}$/;
 
 // Starts a download of a JSON file in the browser
 function downloadJson(data, filename) {
@@ -22,6 +24,53 @@ function downloadJson(data, filename) {
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+// Reads one old localStorage list; returns [] if missing or broken
+function readList(key) {
+  try {
+    const v = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+const str = (v, max) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+// Reads the old browser-only data and cleans it into the shapes the app uses
+function readOldData() {
+  const tasks = readList("cos_tasks")
+    .map((t) => ({
+      title: str(t?.title, 200),
+      due: DATE_OK.test(t?.due) ? t.due : "",
+      done: Boolean(t?.done),
+    }))
+    .filter((t) => t.title);
+
+  const classes = readList("cos_classes")
+    .map((c) => ({ title: str(c?.title, 200), day: str(c?.day, 20), time: str(c?.time, 20) }))
+    .filter((c) => c.title && c.day);
+
+  const notes = readList("cos_notes")
+    .map((n) => ({
+      title: str(n?.title, 200),
+      body: str(n?.body, 20000),
+      created: DATE_OK.test(n?.created) ? n.created : todayStr(),
+    }))
+    .filter((n) => n.title);
+
+  const events = readList("cos_events")
+    .map((e) => ({
+      title: str(e?.title, 200),
+      date: DATE_OK.test(e?.date) ? e.date : "",
+      kind: KINDS.includes(e?.kind) ? e.kind : "Event",
+    }))
+    .filter((e) => e.title && e.date);
+
+  return { tasks, classes, notes, events };
+}
+
+const countAll = (d) => d.tasks.length + d.classes.length + d.notes.length + d.events.length;
+
 export default function Backup() {
   const { tasks, classes, notes, events, exportData, importData } = useData();
 
@@ -29,10 +78,21 @@ export default function Backup() {
   const [pending, setPending] = useState(null); // a checked file waiting for your choice
   const [mode, setMode] = useState("merge");
   const [message, setMessage] = useState(null); // { type: "ok" | "error", text }
+  const [old, setOld] = useState(readOldData); // data from before accounts existed
 
   function handleExport() {
     downloadJson(exportData(), `campus-os-backup-${todayStr()}.json`);
     setMessage({ type: "ok", text: "Backup downloaded. Keep the file somewhere safe." });
+  }
+
+  function handleOldImport() {
+    if (!old || countAll(old) === 0) return;
+    const added = importData(old, "merge");
+    setOld(null);
+    setMessage({
+      type: "ok",
+      text: `Moved your old browser data into your account: ${plural(added.tasks, "task")}, ${plural(added.classes, "class")}, ${plural(added.notes, "note")} and ${plural(added.events, "event")}.`,
+    });
   }
 
   async function handleFile(e) {
@@ -80,7 +140,7 @@ export default function Backup() {
     <>
       <PageHeader
         title="Backup"
-        subtitle="Your data lives in this browser. Download a copy to keep it safe or move it to another device."
+        subtitle="Your data is saved in your account. Download a copy to keep it safe or move it to another device."
       />
 
       {message && (
@@ -95,6 +155,24 @@ export default function Backup() {
           }}
         >
           {message.text}
+        </div>
+      )}
+
+      {old && countAll(old) > 0 && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div className="card-title">Old data found in this browser</div>
+          <p className="muted">
+            From before accounts existed: {plural(old.tasks.length, "task")},{" "}
+            {plural(old.classes.length, "class")}, {plural(old.notes.length, "note")} and{" "}
+            {plural(old.events.length, "event")}. Move it into your account. Items you already
+            have are skipped.
+          </p>
+          <div className="mt">
+            <button className="btn btn-primary" onClick={handleOldImport}>
+              <HardDriveDownload size={16} />
+              Import into my account
+            </button>
+          </div>
         </div>
       )}
 

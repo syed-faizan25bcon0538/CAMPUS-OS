@@ -7,6 +7,8 @@ import { generate, hasKey, state } from "./gemini.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 const DEBUG_TOKEN = process.env.DEBUG_TOKEN || "";
+const SUPABASE_URL = (process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+const SUPABASE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
 const MAX_MESSAGE_CHARS = 4000;
 
 app.disable("x-powered-by");
@@ -23,9 +25,42 @@ Help with:
 Keep answers short and clear. If you are unsure, say so.
 Write in plain text only. Do not use markdown symbols such as ** or # or ---. Use simple numbered lines or short paragraphs instead.`;
 
+const authConfigured = () => Boolean(SUPABASE_URL && SUPABASE_KEY);
+
+// Only lets signed-in users through. Supabase itself checks the token.
+async function requireLogin(req, res, next) {
+  if (!authConfigured()) {
+    return res.status(503).json({ error: "Login check is not configured on the server yet." });
+  }
+  const header = req.get("authorization") || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) {
+    return res.status(401).json({ error: "Please sign in to use the AI assistant." });
+  }
+  try {
+    const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (r.status === 401 || r.status === 403) {
+      return res.status(401).json({ error: "Your login has expired. Please sign in again." });
+    }
+    if (!r.ok) throw new Error(`Supabase answered ${r.status}`);
+    const user = await r.json();
+    if (!user?.id) {
+      return res.status(401).json({ error: "Please sign in to use the AI assistant." });
+    }
+    req.userId = user.id;
+    next();
+  } catch (err) {
+    console.error("Login check failed:", err.message);
+    res.status(503).json({ error: "Couldn't verify your login right now. Please try again." });
+  }
+}
+
 // Public: only says the server is up. Details need the debug token.
 app.get("/api/health", (req, res) => {
-  const body = { ok: true, aiConfigured: hasKey() };
+  const body = { ok: true, aiConfigured: hasKey(), authConfigured: authConfigured() };
   if (DEBUG_TOKEN && req.query.debug === DEBUG_TOKEN) {
     body.model = state.model;
     body.lastError = state.lastError;
@@ -33,7 +68,7 @@ app.get("/api/health", (req, res) => {
   res.json(body);
 });
 
-app.post("/api/chat", originGuard, perVisitor, overall, async (req, res) => {
+app.post("/api/chat", originGuard, requireLogin, perVisitor, overall, async (req, res) => {
   if (!hasKey()) {
     return res.status(503).json({
       error: "AI is not configured yet. Add GEMINI_API_KEY to the server settings.",
@@ -116,4 +151,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`Campus OS server running on http://localhost:${PORT}`);
   if (!hasKey()) console.log("Note: no GEMINI_API_KEY set, so the AI assistant is disabled.");
+  if (!authConfigured()) {
+    console.log("Note: SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY missing, so the AI assistant will refuse all requests.");
+  }
 });

@@ -80,6 +80,12 @@ export function AuthProvider({ children }) {
       },
 
       async signOut() {
+        // Remove the saved AI chat so the next person on this browser can't see it
+        try {
+          localStorage.removeItem("cos_chat");
+        } catch {
+          // storage can be blocked; nothing to clear then
+        }
         if (supabaseReady) await supabase.auth.signOut();
       },
     }),

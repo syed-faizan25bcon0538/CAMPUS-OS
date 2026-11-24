@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Send, Trash2 } from "lucide-react";
 import { useData } from "../context/DataContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
 import { useStore } from "../utils/storage.js";
 import { todayStr } from "../utils/dates.js";
 import PageHeader from "../components/ui/PageHeader.jsx";
@@ -38,6 +39,7 @@ function buildContext({ tasks, classes, events, notes }) {
 
 export default function Assistant() {
   const { tasks, classes, events, notes } = useData();
+  const { session } = useAuth();
 
   const [chat, setChat] = useStore("cos_chat", []);
   const [input, setInput] = useState("");
@@ -70,9 +72,15 @@ export default function Assistant() {
     setLoading(true);
 
     try {
+      const token = session?.access_token;
+      if (!token) throw new Error("Please sign in again to use the AI assistant.");
+
       const res = await fetch(`${API}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         signal: AbortSignal.timeout(120000),
         body: JSON.stringify({
           messages: next.filter((m) => !m.error),

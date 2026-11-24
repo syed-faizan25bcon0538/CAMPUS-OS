@@ -141,7 +141,7 @@ export default function AppLayout() {
             </>
           )}
 
-          <p className="mt">Your data is saved in this browser only.</p>
+          <p className="mt">Your data is saved in your account.</p>
           <button
             className="btn btn-ghost"
             onClick={handleReset}
