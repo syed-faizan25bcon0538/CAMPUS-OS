@@ -1,8 +1,10 @@
 import { useEffect } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 
+import RequireAuth from "./components/layout/RequireAuth.jsx";
 import AppLayout from "./components/layout/AppLayout.jsx";
 import Landing from "./pages/Landing.jsx";
+import Login from "./pages/Login.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Tasks from "./pages/Tasks.jsx";
 import Timetable from "./pages/Timetable.jsx";
@@ -26,18 +28,21 @@ export default function App() {
     <>
       <ScrollToTop />
       <Routes>
-        {/* Public front page */}
+        {/* Public pages */}
         <Route path="/" element={<Landing />} />
+        <Route path="/login" element={<Login />} />
 
-        {/* The app: every page below shares the sidebar and top bar */}
-        <Route path="/app" element={<AppLayout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="timetable" element={<Timetable />} />
-          <Route path="notes" element={<Notes />} />
-          <Route path="calendar" element={<Calendar />} />
-          <Route path="assistant" element={<Assistant />} />
-          <Route path="backup" element={<Backup />} />
+        {/* Pages that need a login */}
+        <Route element={<RequireAuth />}>
+          <Route path="/app" element={<AppLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="tasks" element={<Tasks />} />
+            <Route path="timetable" element={<Timetable />} />
+            <Route path="notes" element={<Notes />} />
+            <Route path="calendar" element={<Calendar />} />
+            <Route path="assistant" element={<Assistant />} />
+            <Route path="backup" element={<Backup />} />
+          </Route>
         </Route>
 
         {/* Anything else */}

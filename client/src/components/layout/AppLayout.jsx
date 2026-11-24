@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, Link, useLocation } from "react-router-dom";
+import { NavLink, Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   ListChecks,
@@ -13,8 +13,10 @@ import {
   Sun,
   Globe,
   RotateCcw,
+  LogOut,
 } from "lucide-react";
 import { useData } from "../../context/DataContext.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 
 // The sidebar menu. Add a line here to add a page to the menu.
 const NAV = [
@@ -62,7 +64,9 @@ function useTheme() {
 
 export default function AppLayout() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const { resetAll } = useData();
+  const { user, signOut } = useAuth();
   const { isDark, toggle } = useTheme();
   const [open, setOpen] = useState(false); // mobile sidebar
 
@@ -80,6 +84,11 @@ export default function AppLayout() {
     if (window.confirm("Delete all your tasks, classes, notes and events? This cannot be undone.")) {
       resetAll();
     }
+  }
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login", { replace: true });
   }
 
   return (
@@ -106,9 +115,35 @@ export default function AppLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          <p>Your data is saved in this browser only.</p>
+          {user && (
+            <>
+              <div className="item-sub">Signed in as</div>
+              <div
+                title={user.email}
+                style={{
+                  fontWeight: 600,
+                  color: "var(--text)",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {user.email}
+              </div>
+              <button
+                className="btn btn-secondary mt"
+                style={{ width: "100%", height: 34 }}
+                onClick={handleSignOut}
+              >
+                <LogOut size={15} />
+                Sign out
+              </button>
+            </>
+          )}
+
+          <p className="mt">Your data is saved in this browser only.</p>
           <button
-            className="btn btn-ghost mt"
+            className="btn btn-ghost"
             onClick={handleReset}
             style={{ height: 34, padding: "0 8px" }}
           >
